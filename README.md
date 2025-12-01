@@ -34,11 +34,12 @@ REST API на Flask + десктопный GUI на Tkinter. Сервер хра
 ## Как запустить локально (Windows / PowerShell)
 1. Создайте venv и установите зависимости:
 ```powershell
-Set-Location -Path 'C:\Users\Сергей\Desktop\Practice1'
+Set-Location -Path 'C:\Users\Сергей\Desktop\OnlineLibrary'
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 pip install -r .\server\requirments.txt
 pip install -r .\client\requirements.txt
+.\.venv\Scripts\python -m pip install Flask-Migrate
 ```
 2. Запустите сервер (SQLite по умолчанию):
 ```powershell
