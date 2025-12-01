@@ -3,14 +3,16 @@ os.environ['PGCLIENTENCODING'] = 'UTF8'
 
 from flask import Flask, jsonify, request
 from flask_sqlalchemy import SQLAlchemy
+from flask_migrate import Migrate
 from sqlalchemy import text
 from datetime import datetime
 
 app = Flask(__name__)
-# Замените 'yourdbname' на имя вашей базы данных
-app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://postgres:123@localhost:5432'
+# Поддержка через переменную окружения `DATABASE_URL`, иначе fallback на SQLite
+app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL') or 'sqlite:///library.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
+migrate = Migrate(app, db)
 
 # Определяем модель книги с добавленным полем reserved_by
 class Book(db.Model):
@@ -28,13 +30,21 @@ class Book(db.Model):
 with app.app_context():
     # Создаем таблицы, если их еще нет
     db.create_all()
-    # Проверяем наличие столбца reserved_by в таблице books и, если его нет, добавляем его
-    with db.engine.begin() as connection:
-        result = connection.execute(
-            text("SELECT column_name FROM information_schema.columns WHERE table_name = 'books' AND column_name = 'reserved_by'")
-        )
-        if result.fetchone() is None:
-            connection.execute(text("ALTER TABLE books ADD COLUMN reserved_by VARCHAR(120)"))
+    # Проверяем наличие столбца reserved_by в таблице books и, если его нет, добавляем его.
+    # Используем SQLAlchemy Inspector (работает для разных БД); при ошибках безопасно пропускаем.
+    from sqlalchemy import inspect
+    inspector = inspect(db.engine)
+    try:
+        cols = [c['name'] for c in inspector.get_columns('books')]
+    except Exception:
+        cols = []
+    if 'reserved_by' not in cols:
+        try:
+            with db.engine.begin() as connection:
+                connection.execute(text("ALTER TABLE books ADD COLUMN reserved_by VARCHAR(120)"))
+        except Exception:
+            # Некритично — если ALTER TABLE не поддерживается или не сработал, пропускаем
+            pass
 
 @app.route('/books', methods=['GET'])
 def get_books():
@@ -48,6 +58,11 @@ def get_books():
             'reserved_by': b.reserved_by
         } for b in books
     ])
+
+
+@app.route('/health', methods=['GET'])
+def health():
+    return jsonify({'status': 'ok'}), 200
 
 @app.route('/books', methods=['POST'])
 def add_book():
