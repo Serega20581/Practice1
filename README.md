@@ -1,4 +1,4 @@
-﻿# Library Management  Project Overview
+﻿# Онлайн библиотека
 
 Автор: Сергей Топтунов
 
